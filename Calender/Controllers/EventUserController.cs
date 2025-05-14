@@ -16,18 +16,25 @@ namespace Calender.Controllers
             _context = context;
         }
 
-        // GET all EventUsers
+        // Hent alle EventUsers
         [HttpGet]
         public async Task<ActionResult<IEnumerable<EventUser>>> GetAllEventUsers()
         {
-            return Ok(await _context.EventUsers.ToListAsync());
+            var eventUsers = await _context.EventUsers
+                .Include(eu => eu.User)
+                .Include(eu => eu.Event)
+                .ToListAsync();
+
+            return Ok(eventUsers);
         }
 
-        // GET single EventUser by UserId and EventId
+        // Hent en enkelt EventUser
         [HttpGet("{userId}/{eventId}")]
         public async Task<ActionResult<EventUser>> GetEventUser(int userId, int eventId)
         {
             var eventUser = await _context.EventUsers
+                .Include(eu => eu.User)
+                .Include(eu => eu.Event)
                 .FirstOrDefaultAsync(eu => eu.UserId == userId && eu.EventId == eventId);
 
             if (eventUser == null)
@@ -36,12 +43,19 @@ namespace Calender.Controllers
             return Ok(eventUser);
         }
 
-        // POST EventUser
+        // Opret en EventUser
         [HttpPost]
         public async Task<ActionResult<EventUser>> CreateEventUser(EventUser eventUser)
         {
             if (eventUser == null)
                 return BadRequest();
+
+            // Valider fremmednøgler
+            var userExists = await _context.Users.AnyAsync(u => u.UserId == eventUser.UserId);
+            var eventExists = await _context.Events.AnyAsync(e => e.EventId == eventUser.EventId);
+
+            if (!userExists || !eventExists)
+                return BadRequest("User or event Dosen't exist.");
 
             _context.EventUsers.Add(eventUser);
             await _context.SaveChangesAsync();
@@ -49,17 +63,19 @@ namespace Calender.Controllers
             return CreatedAtAction(nameof(GetEventUser), new { userId = eventUser.UserId, eventId = eventUser.EventId }, eventUser);
         }
 
-        // PUT EventUser (update permissions)
+        // Opdater en EventUser (kun permissions)
         [HttpPut("{userId}/{eventId}")]
-        public async Task<ActionResult> UpdateEventUser(int userId, int eventId, EventUser updateUser)
+        public async Task<IActionResult> UpdateEventUser(int userId, int eventId, EventUser updateUser)
         {
             var eventUser = await _context.EventUsers
+                .Include(eu => eu.User)
+                .Include(eu => eu.Event)
                 .FirstOrDefaultAsync(eu => eu.UserId == userId && eu.EventId == eventId);
 
             if (eventUser == null)
                 return NotFound();
 
-            // Update only permissions
+            // Opdater kun permissions
             eventUser.Permissions = updateUser.Permissions;
 
             await _context.SaveChangesAsync();
@@ -67,11 +83,13 @@ namespace Calender.Controllers
             return NoContent();
         }
 
-        // DELETE EventUser
+        // Slet en EventUser
         [HttpDelete("{userId}/{eventId}")]
-        public async Task<ActionResult> DeleteEventUser(int userId, int eventId)
+        public async Task<IActionResult> DeleteEventUser(int userId, int eventId)
         {
             var eventUser = await _context.EventUsers
+                .Include(eu => eu.User)
+                .Include(eu => eu.Event)
                 .FirstOrDefaultAsync(eu => eu.UserId == userId && eu.EventId == eventId);
 
             if (eventUser == null)

@@ -16,19 +16,28 @@ namespace Calender.Controllers
             _context = context;
         }
 
-        // GET all Event Invitations
+        // Hent alle Event Invitations
         [HttpGet]
         public async Task<ActionResult<IEnumerable<EventInvitation>>> GetAllEventInvitations()
         {
-            return Ok(await _context.EventInvitations.ToListAsync());
+            var invitations = await _context.EventInvitations
+                .Include(ei => ei.Sender)
+                .Include(ei => ei.Recipient)
+                .Include(ei => ei.Event)
+                .ToListAsync();
+
+            return Ok(invitations);
         }
 
-        // GET Event Invitation by ID
+        // Hent en enkelt Event Invitation
         [HttpGet("{eventId}/{recipientId}")]
         public async Task<ActionResult<EventInvitation>> GetEventInvitation(int eventId, int recipientId)
         {
             var invitation = await _context.EventInvitations
-                .FirstOrDefaultAsync(e => e.EventId == eventId && e.RecipientId == recipientId);
+                .Include(ei => ei.Sender)
+                .Include(ei => ei.Recipient)
+                .Include(ei => ei.Event)
+                .FirstOrDefaultAsync(ei => ei.EventId == eventId && ei.RecipientId == recipientId);
 
             if (invitation == null)
                 return NotFound();
@@ -36,12 +45,20 @@ namespace Calender.Controllers
             return Ok(invitation);
         }
 
-        // POST Event Invitation
+        // Opret en Event Invitation
         [HttpPost]
         public async Task<ActionResult<EventInvitation>> CreateEventInvitation(EventInvitation invitation)
         {
             if (invitation == null)
                 return BadRequest();
+
+            // Valider fremmednøgler
+            var senderExists = await _context.Users.AnyAsync(u => u.UserId == invitation.SenderId);
+            var recipientExists = await _context.Users.AnyAsync(u => u.UserId == invitation.RecipientId);
+            var eventExists = await _context.Events.AnyAsync(e => e.EventId == invitation.EventId);
+
+            if (!senderExists || !recipientExists || !eventExists)
+                return BadRequest("Sender, Recipient or Event dosen't exist.");
 
             _context.EventInvitations.Add(invitation);
             await _context.SaveChangesAsync();
@@ -49,12 +66,15 @@ namespace Calender.Controllers
             return CreatedAtAction(nameof(GetEventInvitation), new { eventId = invitation.EventId, recipientId = invitation.RecipientId }, invitation);
         }
 
-        // DELETE Event Invitation
+        // Slet en Event Invitation
         [HttpDelete("{eventId}/{recipientId}")]
-        public async Task<ActionResult> DeleteEventInvitation(int eventId, int recipientId)
+        public async Task<IActionResult> DeleteEventInvitation(int eventId, int recipientId)
         {
             var invitation = await _context.EventInvitations
-                .FirstOrDefaultAsync(e => e.EventId == eventId && e.RecipientId == recipientId);
+                .Include(ei => ei.Sender)
+                .Include(ei => ei.Recipient)
+                .Include(ei => ei.Event)
+                .FirstOrDefaultAsync(ei => ei.EventId == eventId && ei.RecipientId == recipientId);
 
             if (invitation == null)
                 return NotFound();

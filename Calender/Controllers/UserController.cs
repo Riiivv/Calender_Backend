@@ -16,25 +16,44 @@ namespace Calender.Controllers
             _context = context;
         }
 
-        // GET all users
+        // Hent alle brugere
         [HttpGet]
         public async Task<ActionResult<IEnumerable<User>>> GetAllUsers()
         {
-            return Ok(await _context.Users.ToListAsync());
+            var users = await _context.Users
+                .Include(u => u.Calendars)
+                .Include(u => u.SentInvitations)
+                .Include(u => u.RecievedInvitations)
+                .Include(u => u.SentEventInvitations)
+                .Include(u => u.RecievedEventInvitations)
+                .Include(u => u.EventUsers)
+                .Include(u => u.CalendarUsers)
+                .ToListAsync();
+
+            return Ok(users);
         }
 
-        // GET single user by ID
+        // Hent en enkelt bruger
         [HttpGet("{id}")]
         public async Task<ActionResult<User>> GetUserById(int id)
         {
-            var user = await _context.Users.FindAsync(id);
+            var user = await _context.Users
+                .Include(u => u.Calendars)
+                .Include(u => u.SentInvitations)
+                .Include(u => u.RecievedInvitations)
+                .Include(u => u.SentEventInvitations)
+                .Include(u => u.RecievedEventInvitations)
+                .Include(u => u.EventUsers)
+                .Include(u => u.CalendarUsers)
+                .FirstOrDefaultAsync(u => u.UserId == id);
+
             if (user == null)
                 return NotFound();
 
             return Ok(user);
         }
 
-        // POST create user
+        // Opret en ny bruger
         [HttpPost]
         public async Task<ActionResult<User>> CreateUser(User user)
         {
@@ -47,27 +66,39 @@ namespace Calender.Controllers
             return CreatedAtAction(nameof(GetUserById), new { id = user.UserId }, user);
         }
 
-        // PUT update user
+        // Opdater en bruger
         [HttpPut("{id}")]
-        public async Task<ActionResult> UpdateUser(int id, User updatedUser)
+        public async Task<IActionResult> UpdateUser(int id, User updatedUser)
         {
             var user = await _context.Users.FindAsync(id);
             if (user == null)
                 return NotFound();
 
             user.Username = updatedUser.Username;
-            user.PasswordHash = updatedUser.PasswordHash;
+
+            // Opdater kun password, hvis det er ændret
+            if (!string.IsNullOrWhiteSpace(updatedUser.PasswordHash))
+                user.PasswordHash = updatedUser.PasswordHash;
 
             await _context.SaveChangesAsync();
 
             return NoContent();
         }
 
-        // DELETE user
+        // Slet en bruger
         [HttpDelete("{id}")]
-        public async Task<ActionResult> DeleteUser(int id)
+        public async Task<IActionResult> DeleteUser(int id)
         {
-            var user = await _context.Users.FindAsync(id);
+            var user = await _context.Users
+                .Include(u => u.Calendars)
+                .Include(u => u.SentInvitations)
+                .Include(u => u.RecievedInvitations)
+                .Include(u => u.SentEventInvitations)
+                .Include(u => u.RecievedEventInvitations)
+                .Include(u => u.EventUsers)
+                .Include(u => u.CalendarUsers)
+                .FirstOrDefaultAsync(u => u.UserId == id);
+
             if (user == null)
                 return NotFound();
 

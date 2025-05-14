@@ -1,34 +1,83 @@
 ﻿using Calender.Interface;
 using Calender.Models;
+using Microsoft.EntityFrameworkCore;
+using System.Collections.Generic;
+using System.Threading.Tasks;
 
 namespace Calender.Repositories
 {
-    public class CalendarInvitationRepo : ICalendarInvitaiton
+    public class CalendarInvitationRepo : ICalendarInvitation
     {
-        DatabaseContext ctx;
+        private readonly DatabaseContext _context;
 
         public CalendarInvitationRepo(DatabaseContext context)
         {
-            ctx = context;
+            _context = context;
         }
 
-        public List<CalendarInvitation> GetCalendars()
+        public async Task<List<CalendarInvitation>> GetAllCalendarInvitationsAsync()
         {
-            return ctx.CalendarInvitations.ToList();
+            return await _context.CalendarInvitations
+                .Include(ci => ci.Sender)
+                .Include(ci => ci.Recipient)
+                .Include(ci => ci.Calendar)
+                .ToListAsync();
         }
-        public User GetRecipientByCalendarInvitaiton(int invitationId)
+
+        public async Task<CalendarInvitation?> GetCalendarInvitationAsync(int invitationId)
         {
-            int RecipientId = ctx.CalendarInvitations.Where(i => i.InvitationId == invitationId).Select(r => r.RecipientId).FirstOrDefault();
-            User user = ctx.Users.Where(u => u.UserId == RecipientId).FirstOrDefault();
-            return user;
+            return await _context.CalendarInvitations
+                .Include(ci => ci.Sender)
+                .Include(ci => ci.Recipient)
+                .Include(ci => ci.Calendar)
+                .FirstOrDefaultAsync(ci => ci.InvitationId == invitationId);
         }
-        public User GetSenderByCalenderInvitation(int invitationId)
+
+        public async Task AddCalendarInvitationAsync(CalendarInvitation invitation)
         {
-            int SenderId = ctx.CalendarInvitations.Where(i => i.InvitationId == invitationId).Select(s => s.SenderId).FirstOrDefault();
-            User user = ctx.Users.Where(u => u.UserId ==  SenderId).FirstOrDefault();
-            return user;
+            _context.CalendarInvitations.Add(invitation);
+            await _context.SaveChangesAsync();
+        }
+
+        public async Task UpdateCalendarInvitationAsync(CalendarInvitation invitation)
+        {
+            var existingInvitation = await _context.CalendarInvitations.FindAsync(invitation.InvitationId);
+            if (existingInvitation == null)
+                throw new KeyNotFoundException($"Invitation with ID {invitation.InvitationId} not found.");
+
+            existingInvitation.SenderId = invitation.SenderId;
+            existingInvitation.RecipientId = invitation.RecipientId;
+            existingInvitation.CalendarId = invitation.CalendarId;
+
+            await _context.SaveChangesAsync();
+        }
+
+        public async Task DeleteCalendarInvitationAsync(int invitationId)
+        {
+            var invitation = await _context.CalendarInvitations.FindAsync(invitationId);
+            if (invitation != null)
+            {
+                _context.CalendarInvitations.Remove(invitation);
+                await _context.SaveChangesAsync();
+            }
+        }
+
+        public async Task<User?> GetRecipientByCalendarInvitationAsync(int invitationId)
+        {
+            var invitation = await _context.CalendarInvitations
+                .Include(ci => ci.Recipient)
+                .FirstOrDefaultAsync(ci => ci.InvitationId == invitationId);
+
+            return invitation?.Recipient;
+        }
+
+        public async Task<User?> GetSenderByCalendarInvitationAsync(int invitationId)
+        {
+            var invitation = await _context.CalendarInvitations
+                .Include(ci => ci.Sender)
+                .FirstOrDefaultAsync(ci => ci.InvitationId == invitationId);
+
+            return invitation?.Sender;
         }
     }
 }
-// calender id > modtager id = return user;
-//Find User fra RecipientId
