@@ -12,7 +12,7 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace Calender.Migrations
 {
     [DbContext(typeof(DatabaseContext))]
-    [Migration("20250514111939_InitialCreate")]
+    [Migration("20250519055912_InitialCreate")]
     partial class InitialCreate
     {
         /// <inheritdoc />

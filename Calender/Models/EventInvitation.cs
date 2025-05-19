@@ -1,4 +1,6 @@
-﻿namespace Calender.Models
+﻿using System.Text.Json.Serialization;
+
+namespace Calender.Models
 {
     public class EventInvitation
     {
@@ -6,9 +8,11 @@
         public int SenderId { get; set; }
         public int RecipientId { get; set; }
         public int EventId { get; set; }
-
-        public User Sender { get; set; }
-        public User Recipient { get; set; }
-        public Event Event { get; set; }
+        [JsonIgnore]
+        public virtual User? Sender { get; set; }
+        [JsonIgnore]
+        public virtual User? Recipient { get; set; }
+        [JsonIgnore]
+        public virtual Event? Event { get; set; }
     }
 }

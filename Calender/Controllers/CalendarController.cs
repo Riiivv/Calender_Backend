@@ -8,6 +8,7 @@ using System.Threading.Tasks;
 namespace Calender.Controllers
 {
     [Route("api/[controller]")]
+    [ApiController]
     public class CalendarController : ControllerBase
     {
         private readonly DatabaseContext _context;
