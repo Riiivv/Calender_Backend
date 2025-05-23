@@ -53,7 +53,7 @@ namespace Calender.Controllers
 
         [HttpPost("login")]
 
-        public async Task<ActionResult<User>> login(User request)
+        public async Task<ActionResult<string?>> login(User request)
         {
             var user = await _context.Users.FirstOrDefaultAsync(u => u.Username == request.Username);
 

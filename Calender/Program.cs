@@ -18,7 +18,7 @@ builder.Services.AddScoped<IEventInvitation, EventInvitationRepo>();
 builder.Services.AddScoped<IEvent, EventRepo>();
 builder.Services.AddScoped<IEventUser, EventUserRepo>();
 builder.Services.AddScoped<IUser, UserRepo>();
-
+//Test af branch
 
 
 string connectionstring = builder.Configuration.GetConnectionString("DefaultConnection");
