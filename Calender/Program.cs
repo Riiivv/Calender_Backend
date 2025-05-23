@@ -30,15 +30,16 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
         options.TokenValidationParameters = new TokenValidationParameters
         {
             ValidateIssuer = true,
-            ValidIssuer = builder.Configuration["JwTSettings:Issuer"],
+            ValidIssuer = builder.Configuration["JwtSettings:Issuer"],
             ValidateAudience = true,
-            ValidAudience = builder.Configuration["JwTSettings:Audience"],
+            ValidAudience = builder.Configuration["JwtSettings:Audience"],
             ValidateLifetime = true,
             IssuerSigningKey = new SymmetricSecurityKey(
-                Encoding.UTF8.GetBytes(builder.Configuration["JwTSettings:Token"]!)),
+                Encoding.UTF8.GetBytes(builder.Configuration["JwtSettings:Token"]!)),
             ValidateIssuerSigningKey = true
         };
     });
+
 
 
 var app = builder.Build();
@@ -50,8 +51,10 @@ if (app.Environment.IsDevelopment())
     app.MapOpenApi();
 }
 
+app.UseAuthentication();    // <- Denne MÅ komme før authorization
 app.UseAuthorization();
 
 app.MapControllers();
+
 
 app.Run();
