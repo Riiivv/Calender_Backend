@@ -1,4 +1,5 @@
 ﻿using Calender.Models;
+using Calender.Repositories;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -10,95 +11,84 @@ namespace Calender.Controllers
     public class EventUserController : ControllerBase
     {
         private readonly DatabaseContext _context;
+        private readonly EventUserRepo _eventUserRepo;
 
         public EventUserController(DatabaseContext context)
         {
             _context = context;
+            _eventUserRepo = new EventUserRepo(context);
         }
 
         // Hent alle EventUsers
         [HttpGet]
         public async Task<ActionResult<IEnumerable<EventUser>>> GetAllEventUsers()
         {
-            var eventUsers = await _context.EventUsers
-                .Include(eu => eu.User)
-                .Include(eu => eu.Event)
-                .ToListAsync();
-
-            return Ok(eventUsers);
+            var result = await _eventUserRepo.GetAllEventUsersAsync();
+            return Ok(result);
         }
 
         // Hent en enkelt EventUser
         [HttpGet("{userId}/{eventId}")]
-        public async Task<ActionResult<EventUser>> GetEventUser(int userId, int eventId)
+        public async Task<ActionResult<EventUser>> GetEventUser(int eventId, int userId)
         {
-            var eventUser = await _context.EventUsers
-                .Include(eu => eu.User)
-                .Include(eu => eu.Event)
-                .FirstOrDefaultAsync(eu => eu.UserId == userId && eu.EventId == eventId);
-
-            if (eventUser == null)
-                return NotFound();
-
-            return Ok(eventUser);
+            var result = await _eventUserRepo.GetEventUserAsync(eventId, userId);
+            if (result == null) return NotFound();
+                return Ok(result);
         }
+
 
         // Opret en EventUser
         [HttpPost]
         public async Task<ActionResult<EventUser>> CreateEventUser(EventUser eventUser)
         {
             if (eventUser == null)
-                return BadRequest();
+                return BadRequest("Invalid event user data.");
 
-            // Valider fremmednøgler
-            var userExists = await _context.Users.AnyAsync(u => u.UserId == eventUser.UserId);
-            var eventExists = await _context.Events.AnyAsync(e => e.EventId == eventUser.EventId);
-
-            if (!userExists || !eventExists)
-                return BadRequest("User or event Dosen't exist.");
-
-            _context.EventUsers.Add(eventUser);
-            await _context.SaveChangesAsync();
-
-            return CreatedAtAction(nameof(GetEventUser), new { userId = eventUser.UserId, eventId = eventUser.EventId }, eventUser);
+            try
+            {
+                await _eventUserRepo.AddEventUserAsync(eventUser);
+                return CreatedAtAction(nameof(GetEventUser), new { eventId = eventUser.EventId, userId = eventUser.UserId }, eventUser);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(ex.Message);
+            }
         }
 
         // Opdater en EventUser (kun permissions)
         [HttpPut("{userId}/{eventId}")]
         public async Task<IActionResult> UpdateEventUser(int userId, int eventId, EventUser updateUser)
         {
-            var eventUser = await _context.EventUsers
-                .Include(eu => eu.User)
-                .Include(eu => eu.Event)
-                .FirstOrDefaultAsync(eu => eu.UserId == userId && eu.EventId == eventId);
+            if (updateUser == null)
+                return BadRequest("Invalud input");
 
-            if (eventUser == null)
-                return NotFound();
+            updateUser.EventId = eventId;
+            updateUser.UserId = userId;
 
-            // Opdater kun permissions
-            eventUser.Permissions = updateUser.Permissions;
-
-            await _context.SaveChangesAsync();
-
-            return NoContent();
+            try
+            {
+                await _eventUserRepo.UpdateEventUserAsync(updateUser);
+                return NoContent();
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return BadRequest(ex.Message);
+            }
         }
 
         // Slet en EventUser
         [HttpDelete("{userId}/{eventId}")]
         public async Task<IActionResult> DeleteEventUser(int userId, int eventId)
         {
-            var eventUser = await _context.EventUsers
-                .Include(eu => eu.User)
-                .Include(eu => eu.Event)
-                .FirstOrDefaultAsync(eu => eu.UserId == userId && eu.EventId == eventId);
-
-            if (eventUser == null)
+            try
+            {
+                await _eventUserRepo.DeleteEventUserAsync(eventId, userId)
+                    return NoContent();
+            }
+            catch (KeyNotFoundException) 
+            {
                 return NotFound();
-
-            _context.EventUsers.Remove(eventUser);
-            await _context.SaveChangesAsync();
-
-            return NoContent();
+            }
         }
     }
 }

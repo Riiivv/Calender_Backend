@@ -60,10 +60,10 @@ namespace Calender.Repositories
                 .FirstOrDefaultAsync(cu => cu.CalendarId == calendarId && cu.UserId == userId);
 
             if (calendarUser != null)
-            {
+                throw new KeyNotFoundException("CalenderUser not found");
+
                 _context.CalendarUsers.Remove(calendarUser);
                 await _context.SaveChangesAsync();
-            }
         }
     }
 }
