@@ -5,6 +5,7 @@ using Microsoft.EntityFrameworkCore;
 using Calender.Repositories;
 using System.Runtime.CompilerServices;
 using Microsoft.AspNetCore.Authorization;
+using Calender.DTO;
 
 namespace Calender.Controllers
 {
@@ -20,6 +21,16 @@ namespace Calender.Controllers
             _context = context;
             _userRepo = new UserRepo(context);
 
+        }
+
+        // GET api/user/5
+        [HttpGet("{id}")]
+        public async Task<ActionResult<UserDto>> GetUser(int id)
+        {
+            var user = await _userRepo.GetUserByIdAsync(id);
+            if (user == null) return NotFound();
+
+            return Ok(user.ToDTO());
         }
 
         // Hent alle brugere

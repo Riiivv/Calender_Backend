@@ -17,6 +17,5 @@ namespace Calender.Models
         public virtual List<CalendarUser>? CalendarUsers { get; set; } = new List<CalendarUser>();
         [JsonIgnore]
         public virtual User? User { get; set; }
-
     }
 }
