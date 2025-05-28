@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Calender.Repositories;
 using System.Runtime.CompilerServices;
+using Microsoft.AspNetCore.Authorization;
 
 namespace Calender.Controllers
 {
@@ -54,6 +55,7 @@ namespace Calender.Controllers
         }
 
         // Opdater en bruger
+        [Authorize]
         [HttpPut("{id}")]
         public async Task<IActionResult> UpdateUser(int id, User updatedUser)
         {
@@ -77,6 +79,7 @@ namespace Calender.Controllers
         }
 
         // Slet en bruger
+        [Authorize]
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteUser(int id)
         {

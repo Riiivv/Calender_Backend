@@ -1,5 +1,6 @@
 ﻿using Calender.Models;
 using Calender.Repositories;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -38,6 +39,7 @@ namespace Calender.Controllers
 
 
         // Opret en EventUser
+        [Authorize]
         [HttpPost]
         public async Task<ActionResult<EventUser>> CreateEventUser(EventUser eventUser)
         {
@@ -56,6 +58,7 @@ namespace Calender.Controllers
         }
 
         // Opdater en EventUser (kun permissions)
+        [Authorize]
         [HttpPut("{userId}/{eventId}")]
         public async Task<IActionResult> UpdateEventUser(int userId, int eventId, EventUser updateUser)
         {
@@ -77,12 +80,13 @@ namespace Calender.Controllers
         }
 
         // Slet en EventUser
+        [Authorize]
         [HttpDelete("{userId}/{eventId}")]
         public async Task<IActionResult> DeleteEventUser(int userId, int eventId)
         {
             try
             {
-                await _eventUserRepo.DeleteEventUserAsync(eventId, userId)
+                await _eventUserRepo.DeleteEventUserAsync(eventId, userId);
                     return NoContent();
             }
             catch (KeyNotFoundException) 

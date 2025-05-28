@@ -1,5 +1,6 @@
 ﻿using Calender.Models;
 using Calender.Repositories;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -37,6 +38,7 @@ namespace Calender.Controllers
         }
 
         // Opret et nyt event
+        [Authorize]
         [HttpPost]
         public async Task<ActionResult<Event>> CreateEvent(Event evt)
         {
@@ -51,6 +53,7 @@ namespace Calender.Controllers
         }
 
         // Opdater et event
+        [Authorize]
         [HttpPut("{id}")]
         public async Task<IActionResult> UpdateEvent(int id, Event evt)
         {
@@ -71,6 +74,7 @@ namespace Calender.Controllers
         }
 
         // Slet et event
+        [Authorize]
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteEvent(int id)
         {

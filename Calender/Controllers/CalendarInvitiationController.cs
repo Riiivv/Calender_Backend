@@ -1,5 +1,6 @@
 ﻿using Calender.Models;
 using Calender.Repositories;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Collections.Generic;
 using System.Threading.Tasks;
@@ -37,6 +38,7 @@ namespace Calender.Controllers
         }
 
         // Opret en invitation
+        [Authorize]
         [HttpPost]
         public async Task<ActionResult<CalendarInvitation>> CreateInvitation(CalendarInvitation invitation)
         {
@@ -48,6 +50,7 @@ namespace Calender.Controllers
         }
 
         // Opdater en invitation
+        [Authorize]
         [HttpPut("{id}")]
         public async Task<IActionResult> UpdateInvitation(int id, CalendarInvitation updatedInvitation)
         {
@@ -66,6 +69,7 @@ namespace Calender.Controllers
         }
 
         // Slet en invitation
+        [Authorize]
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteInvitation(int id)
         {

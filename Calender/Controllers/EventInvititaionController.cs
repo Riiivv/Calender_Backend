@@ -1,5 +1,6 @@
 ﻿using Calender.Models;
 using Calender.Repositories;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
@@ -36,6 +37,7 @@ namespace Calender.Controllers
         }
 
         // Opret ny invitation
+        [Authorize]
         [HttpPost]
         public async Task<ActionResult<EventInvitation>> CreateEventInvitation(EventInvitation invitation)
         {
@@ -57,6 +59,7 @@ namespace Calender.Controllers
         }
 
         // Opdater invitation
+        [Authorize]
         [HttpPut("{eventId}/{recipientId}")]
         public async Task<IActionResult> UpdateEventInvitation(int eventId, int recipientId, EventInvitation invitation)
         {
@@ -75,6 +78,7 @@ namespace Calender.Controllers
         }
 
         // Slet invitation
+        [Authorize]
         [HttpDelete("{eventId}/{recipientId}")]
         public async Task<IActionResult> DeleteEventInvitation(int eventId, int recipientId)
         {
