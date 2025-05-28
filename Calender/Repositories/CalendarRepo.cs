@@ -39,8 +39,14 @@ namespace Calender.Repositories
             await ctx.SaveChangesAsync();
         }
 
+        public async Task<bool> UserExistsAsync(int userId)
+        {
+            return await ctx.Users.AnyAsync(u => u.UserId == userId);
+        }
+
         public async Task UpdateCalendarAsync(Calendar calendar)
         {
+
             var existingCalendar = await ctx.Calendars.FindAsync(calendar.CalendarId);
             if (existingCalendar == null)
                 throw new KeyNotFoundException($"Calendar with ID {calendar.CalendarId} not found.");
@@ -53,9 +59,14 @@ namespace Calender.Repositories
 
         public async Task DeleteCalendarAsync(int id)
         {
-            var calendar = await ctx.Calendars.FindAsync(id);
+            var calendar = await ctx.Calendars
+                .Include(c => c.Events)
+                .Include(c => c.CalendarUsers)
+                .Include(c => c.Invitations)
+                .FirstOrDefaultAsync(c => c.CalendarId == id);
+
             if (calendar == null)
-                throw new KeyNotFoundException($"Calendar with ID {id} not found.");
+                throw new KeyNotFoundException("Calendar not found");
 
             ctx.Calendars.Remove(calendar);
             await ctx.SaveChangesAsync();
