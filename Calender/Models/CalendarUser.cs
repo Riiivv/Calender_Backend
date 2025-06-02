@@ -12,6 +12,12 @@ namespace Calender.Models
         [JsonIgnore]
         public User? User { get; set; }
 
-        public int Permissions { get; set; }
+        public enum PermissionLevel
+        {
+            Viewer,
+            Editor,
+            Owner
+        }
+        public PermissionLevel Permissions { get; set; }
     }
 }
