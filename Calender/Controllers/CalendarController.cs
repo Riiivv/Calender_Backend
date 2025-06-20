@@ -4,6 +4,8 @@ using Microsoft.EntityFrameworkCore;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using Calender.Repositories;
+using Microsoft.AspNetCore.Authorization;
 
 namespace Calender.Controllers
 {
@@ -12,31 +14,26 @@ namespace Calender.Controllers
     public class CalendarController : ControllerBase
     {
         private readonly DatabaseContext _context;
+        private readonly CalendarRepo _calendarRepo;
 
         public CalendarController(DatabaseContext context)
         {
             _context = context;
+            _calendarRepo = new CalendarRepo(context);
         }
+
 
         //GET: api/Calendar
         [HttpGet]
         public async Task<ActionResult<IEnumerable<Calendar>>> GetCalendar()
         {
-            return Ok(await _context.Calendars
-                .Include(c => c.Events)
-                .Include(c => c.CalendarUsers)
-                .Include(c => c.Invitations)
-                .ToListAsync());
+            return await _calendarRepo.GetCalendarsAsync();
         }
 
         [HttpGet("{id}")]
         public async Task<ActionResult<Calendar>> GetCalendar(int id)
         {
-            var calendar = await _context.Calendars
-                .Include(c => c.Events)
-                .Include(c => c.CalendarUsers)
-                .Include(c => c.Invitations)
-                .FirstOrDefaultAsync(c => c.CalendarId == id);
+            var calendar = await _calendarRepo.GetCalendarByIdAsync(id);
 
             if (calendar == null)
                 return NotFound($"Calendar with ID {id} not found.");
@@ -48,12 +45,14 @@ namespace Calender.Controllers
         [HttpPost]
         public async Task<ActionResult<Calendar>> CreateCalendar(Calendar calendar)
         {
-            var user = await _context.Users.FindAsync(calendar.Userid);
-            if (user == null)
-                return BadRequest($"User with ID {calendar.Userid} not found.");
 
-            _context.Calendars.Add(calendar);
-            await _context.SaveChangesAsync();
+            if (calendar == null || string.IsNullOrWhiteSpace(calendar.CalendarName))
+            return BadRequest("CalendarName is required.");
+
+            if (!await _calendarRepo.UserExistsAsync(calendar.Userid))
+                return BadRequest($"User with ID {calendar.Userid} Does not exist.");
+
+            await _calendarRepo.AddCalendarAsync(calendar);
 
             return CreatedAtAction(nameof(GetCalendar), new { id = calendar.CalendarId }, calendar);
         }
@@ -62,29 +61,35 @@ namespace Calender.Controllers
         [HttpPut("{id}")]
         public async Task<IActionResult> UpdateCalendar(int id, Calendar updateCalendar)
         {
-            var calendar = await _context.Calendars.FindAsync(id);
-            if (calendar == null)
-                return NotFound($"Calendar with ID {id} not found.");
+            if (string.IsNullOrWhiteSpace(updateCalendar.CalendarName))
+                return BadRequest("Calenername is required.");
 
-            calendar.CalendarName = updateCalendar.CalendarName;
-            calendar.Userid = updateCalendar.Userid;
+            updateCalendar.CalendarId = id;
 
-            await _context.SaveChangesAsync();
-
-            return NoContent();
+            try
+            {
+                await _calendarRepo.UpdateCalendarAsync(updateCalendar);
+                return NoContent();
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFound(ex.Message);
+            }
         }
 
         //delete
         [HttpDelete("{id}")]
         public async Task<ActionResult> DeleteCalendar(int id)
         {
-            var calendar = await _context.Calendars.FindAsync(id);
-            if (calendar == null)
-                return NotFound($"Calendar with ID {id} not found.");
-
-            _context.Calendars.Remove(calendar);
-            await _context.SaveChangesAsync();
-            return NoContent();
+            try
+            {
+                await _calendarRepo.DeleteCalendarAsync(id);
+                return NoContent();
+            }
+            catch (KeyNotFoundException)
+            {
+                return NotFound();
+            }
         }
 
         [HttpGet("{id}/events")]

@@ -1,4 +1,5 @@
-﻿using System.Text.Json.Serialization;
+﻿using Calender.DTO;
+using System.Text.Json.Serialization;
 
 namespace Calender.Models
 {
@@ -29,5 +30,14 @@ namespace Calender.Models
 
         [JsonIgnore]
         public virtual List<CalendarUser>? CalendarUsers { get; set; } = new List<CalendarUser>();
+
+        public UserDto ToDTO()
+        {
+            return new UserDto
+            {
+                UserId = this.UserId,
+                Username = this.Username
+            };
+        }
     }
 }

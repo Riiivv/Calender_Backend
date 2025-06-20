@@ -18,7 +18,7 @@ namespace Calender.Repositories
         // Hent alle brugere
         public async Task<List<User>> GetAllUsersAsync()
         {
-            return await _context.Users
+            var users = await _context.Users
                 .Include(u => u.Calendars)
                 .Include(u => u.SentInvitations)
                 .Include(u => u.RecievedInvitations)
@@ -27,6 +27,8 @@ namespace Calender.Repositories
                 .Include(u => u.EventUsers)
                 .Include(u => u.CalendarUsers)
                 .ToListAsync();
+
+            return users;
         }
 
         // Hent en enkelt bruger
@@ -67,12 +69,21 @@ namespace Calender.Repositories
         // Slet en bruger
         public async Task DeleteUserAsync(int id)
         {
-            var user = await _context.Users.FindAsync(id);
+            var user = await _context.Users
+                .Include(u => u.Calendars)
+                .Include(u => u.SentInvitations)
+                .Include(u => u.RecievedInvitations)
+                .Include(u => u.SentEventInvitations)
+                .Include(u => u.RecievedEventInvitations)
+                .Include(u => u.EventUsers)
+                .Include(u => u.CalendarUsers)
+                .FirstOrDefaultAsync(u=> u.UserId == id);
+
             if (user != null)
-            {
+                throw new KeyNotFoundException("User not found");
+
                 _context.Users.Remove(user);
                 await _context.SaveChangesAsync();
-            }
         }
     }
 }

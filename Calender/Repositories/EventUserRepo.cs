@@ -62,10 +62,9 @@ namespace Calender.Repositories
                 .FirstOrDefaultAsync(eu => eu.EventId == eventId && eu.UserId == userId);
 
             if (eventUser != null)
-            {
+                throw new KeyNotFoundException("EventUser not found");
                 _context.EventUsers.Remove(eventUser);
-                await _context.SaveChangesAsync();
-            }
+            await _context.SaveChangesAsync();
         }
     }
 }

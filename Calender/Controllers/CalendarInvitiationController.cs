@@ -1,7 +1,9 @@
 ﻿using Calender.Models;
-using Microsoft.AspNetCore.Http;
+using Calender.Repositories;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
+using System.Collections.Generic;
+using System.Threading.Tasks;
 
 namespace Calender.Controllers
 {
@@ -9,104 +11,97 @@ namespace Calender.Controllers
     [ApiController]
     public class CalendarInvitationController : ControllerBase
     {
-        private readonly DatabaseContext _context;
+        private readonly CalendarInvitationRepo _invitationRepo;
 
         public CalendarInvitationController(DatabaseContext context)
         {
-            _context = context;
+            _invitationRepo = new CalendarInvitationRepo(context);
         }
 
+        // Hent alle invitationer
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<CalendarInvitation>>> GetAllCalendarInvitations()
+        public async Task<ActionResult<IEnumerable<CalendarInvitation>>> GetAllInvitations()
         {
-            var invitations = await _context.CalendarInvitations
-                .Include(ci => ci.Sender)
-                .Include(ci => ci.Recipient)
-                .Include(ci => ci.Calendar)
-                .ToListAsync();
+            var invitations = await _invitationRepo.GetAllCalendarInvitationsAsync();
             return Ok(invitations);
         }
 
+        // Hent én invitation
         [HttpGet("{id}")]
-        public async Task<ActionResult<CalendarInvitation>> GetCalendarInvitation(int id)
+        public async Task<ActionResult<CalendarInvitation>> GetInvitationById(int id)
         {
-            var invitation = await _context.CalendarInvitations
-                .Include(ci => ci.Sender)
-                .Include(ci => ci.Recipient)
-                .Include(ci => ci.Calendar)
-                .FirstOrDefaultAsync(ci => ci.InvitationId == id);
-
+            var invitation = await _invitationRepo.GetCalendarInvitationAsync(id);
             if (invitation == null)
                 return NotFound();
 
             return Ok(invitation);
         }
 
+        // Opret en invitation
+        [Authorize]
         [HttpPost]
         public async Task<ActionResult<CalendarInvitation>> CreateInvitation(CalendarInvitation invitation)
         {
             if (invitation == null)
-                return BadRequest();
+                return BadRequest("Invitation cannot be null.");
 
-            var sender = await _context.Users.FindAsync(invitation.SenderId);
-            var recipient = await _context.Users.FindAsync(invitation.RecipientId);
-            var calendar = await _context.Calendars.FindAsync(invitation.CalendarId);
-
-            if (sender == null || recipient == null || calendar == null)
-                return BadRequest("Sender, Recipient or Calendar doesn't exist.");
-
-            _context.CalendarInvitations.Add(invitation);
-            await _context.SaveChangesAsync();
-
-            // Rette denne linje
-            return CreatedAtAction(nameof(GetCalendarInvitation), new { id = invitation.InvitationId }, invitation);
+            await _invitationRepo.AddCalendarInvitationAsync(invitation);
+            return CreatedAtAction(nameof(GetInvitationById), new { id = invitation.InvitationId }, invitation);
         }
 
+        // Opdater en invitation
+        [Authorize]
         [HttpPut("{id}")]
-        public async Task<IActionResult> UpdateCalendarInvitation(int id, CalendarInvitation updatecalendar)
+        public async Task<IActionResult> UpdateInvitation(int id, CalendarInvitation updatedInvitation)
         {
-            var invitation = await _context.CalendarInvitations
-                .Include(ci => ci.Sender)
-                .Include(ci => ci.Recipient)
-                .Include(ci => ci.Calendar)
-                .FirstOrDefaultAsync(ci => ci.InvitationId == id);  // Rette denne linje
+            if (id != updatedInvitation.InvitationId)
+                return BadRequest("ID mismatch.");
 
-            if (invitation == null)
-                return NotFound();
-
-            // Valider fremmednøgler (Sender, Recipient, Calendar)
-            var sender = await _context.Users.FindAsync(updatecalendar.SenderId);
-            var recipient = await _context.Users.FindAsync(updatecalendar.RecipientId);
-            var calendar = await _context.Calendars.FindAsync(updatecalendar.CalendarId);
-
-            if (sender == null || recipient == null || calendar == null)
-                return BadRequest("Sender, Recipient or Calendar doesn't exist.");
-
-            invitation.SenderId = updatecalendar.SenderId;
-            invitation.RecipientId = updatecalendar.RecipientId;
-            invitation.CalendarId = updatecalendar.CalendarId;
-
-            await _context.SaveChangesAsync();
-
-            return NoContent();
+            try
+            {
+                await _invitationRepo.UpdateCalendarInvitationAsync(updatedInvitation);
+                return NoContent();
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFound(ex.Message);
+            }
         }
 
+        // Slet en invitation
+        [Authorize]
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteInvitation(int id)
         {
-            var invitation = await _context.CalendarInvitations
-                .Include(ci => ci.Sender)
-                .Include(ci => ci.Recipient)
-                .Include(ci => ci.Calendar)
-                .FirstOrDefaultAsync(ci => ci.InvitationId == id);
+            try
+            {
+                await _invitationRepo.DeleteCalendarInvitationAsync(id);
+                return NoContent();
+            }
+            catch
+            {
+                return NotFound($"Invitation with ID {id} not found.");
+            }
+        }
 
-            if (invitation == null)
-                return NotFound();
+        // Hent modtageren (recipient) af en invitation
+        [HttpGet("{id}/recipient")]
+        public async Task<ActionResult<User>> GetRecipient(int id)
+        {
+            var recipient = await _invitationRepo.GetRecipientByCalendarInvitationAsync(id);
+            if (recipient == null)
+                return NotFound("Recipient not found.");
+            return Ok(recipient);
+        }
 
-            _context.CalendarInvitations.Remove(invitation);
-            await _context.SaveChangesAsync();
-
-            return NoContent();
+        // Hent afsenderen (sender) af en invitation
+        [HttpGet("{id}/sender")]
+        public async Task<ActionResult<User>> GetSender(int id)
+        {
+            var sender = await _invitationRepo.GetSenderByCalendarInvitationAsync(id);
+            if (sender == null)
+                return NotFound("Sender not found.");
+            return Ok(sender);
         }
     }
 }

@@ -1,5 +1,6 @@
-﻿using Calender.Models;
+using Calender.Models;
 using Microsoft.AspNetCore.Authorization;
+using Calender.Repositories;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -11,22 +12,31 @@ namespace Calender.Controllers
     public class CalendarUserController : ControllerBase
     {
         private readonly DatabaseContext _context;
+        private readonly CalendarUserRepo _calendarUserRepo;
 
         public CalendarUserController(DatabaseContext context)
         {
             _context = context;
+            _calendarUserRepo = new CalendarUserRepo(context);
         }
 
         // Hent alle CalendarUsers
         [HttpGet]
         public async Task<ActionResult<IEnumerable<CalendarUser>>> GetAllCUsers()
         {
-            var calendarUsers = await _context.CalendarUsers
-                .Include(cu => cu.User)
-                .Include(cu => cu.Calendar)
-                .ToListAsync();
-
+            var calendarUsers = await _calendarUserRepo.GetAllCalendarUsersAsync();
             return Ok(calendarUsers);
+        }
+
+        //hent en specefic CalendarUser
+        [HttpGet("{CalendarId}/{UserId}")]
+        public async Task<ActionResult<CalendarUser>> GetCalendarUser(int calendarid, int userId)
+        {
+            var calendarUser = await _calendarUserRepo.GetCalendarUserAsync(calendarid, userId);
+            if (calendarUser == null)
+                return NotFound();
+
+            return Ok(calendarUser);
         }
 
         // Opret en ny CalendarUser
@@ -79,20 +89,20 @@ namespace Calender.Controllers
         }
 
 
+
         // Slet en CalendarUser
         [HttpDelete("{calendarId}/{userId}")]
         public async Task<IActionResult> DeleteCuser(int calendarId, int userId)
         {
-            var cuser = await _context.CalendarUsers
-                .FirstOrDefaultAsync(cu => cu.CalendarId == calendarId && cu.UserId == userId);
-
-            if (cuser == null)
-                return NotFound();
-
-            _context.CalendarUsers.Remove(cuser);
-            await _context.SaveChangesAsync();
-
-            return NoContent();
+            try
+            {
+                await _calendarUserRepo.DeleteCalendarUserAsync(calendarId, userId);
+                return NoContent();
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFound(ex.Message);
+            }
         }
     }
 }

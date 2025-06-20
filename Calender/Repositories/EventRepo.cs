@@ -38,22 +38,25 @@ namespace Calender.Repositories
         // Opret et nyt event
         public async Task AddEventAsync(Event eevent)
         {
+            if (eevent == null)
+                throw new ArgumentNullException(nameof(eevent));
+
             _context.Events.Add(eevent);
             await _context.SaveChangesAsync();
         }
 
         // Opdater et event
-        public async Task UpdateEventAsync(Event eventUpdate)
+        public async Task UpdateEventAsync(Event updatedEvent)
         {
-            var existingEvent = await _context.Events.FindAsync(eventUpdate.EventId);
+            var existingEvent = await _context.Events.FindAsync(updatedEvent.EventId);
             if (existingEvent == null)
-                throw new KeyNotFoundException("Event not found.");
+                throw new KeyNotFoundException($"Event with ID {updatedEvent.EventId} not found.");
 
-            existingEvent.EventTitle = eventUpdate.EventTitle;
-            existingEvent.EventDescription = eventUpdate.EventDescription;
-            existingEvent.EventStart = eventUpdate.EventStart;
-            existingEvent.EventEnd = eventUpdate.EventEnd;
-            existingEvent.CalendarId = eventUpdate.CalendarId;
+            existingEvent.EventTitle = updatedEvent.EventTitle;
+            existingEvent.EventDescription = updatedEvent.EventDescription;
+            existingEvent.EventStart = updatedEvent.EventStart;
+            existingEvent.EventEnd = updatedEvent.EventEnd;
+            existingEvent.CalendarId = updatedEvent.CalendarId;
 
             await _context.SaveChangesAsync();
         }
@@ -61,12 +64,16 @@ namespace Calender.Repositories
         // Slet et event
         public async Task DeleteEventAsync(int eventId)
         {
-            var eventToDelete = await _context.Events.FindAsync(eventId);
-            if (eventToDelete != null)
-            {
-                _context.Events.Remove(eventToDelete);
-                await _context.SaveChangesAsync();
-            }
+            var eventToDelete = await _context.Events
+                .Include(e => e.EventUsers)
+                .Include(e => e.Invitations)
+                .FirstOrDefaultAsync(e => e.EventId == eventId);
+
+            if (eventToDelete == null)
+                throw new KeyNotFoundException($"Event with ID {eventId} not found.");
+
+            _context.Events.Remove(eventToDelete);
+            await _context.SaveChangesAsync();
         }
     }
 }
