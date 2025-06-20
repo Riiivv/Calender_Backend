@@ -10,6 +10,12 @@ namespace Calender.Models
         public int EventId { get; set; }
         [JsonIgnore]
         public virtual User? User { get; set; }
-        public int Permissions { get; set; }
+        public enum PermissionLevel
+        {
+            Viewer,
+            Editor,
+            Owner
+        }
+        public PermissionLevel Permissions { get; set; }
     }
 }

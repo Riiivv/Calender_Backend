@@ -1,4 +1,5 @@
-﻿using Calender.Models;
+using Calender.Models;
+using Microsoft.AspNetCore.Authorization;
 using Calender.Repositories;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -39,6 +40,7 @@ namespace Calender.Controllers
         }
 
         // Opret en ny CalendarUser
+        [Authorize]
         [HttpPost]
         public async Task<ActionResult<CalendarUser>> CreateCUser(CalendarUser cuser)
         {
@@ -58,25 +60,35 @@ namespace Calender.Controllers
             return CreatedAtAction(nameof(GetAllCUsers), new { id = cuser.CalendarId }, cuser);
         }
 
-        // Opdater en CalendarUser
+        [Authorize]
         [HttpPut("{calendarId}/{userId}")]
         public async Task<IActionResult> UpdateCUser(int calendarId, int userId, CalendarUser updatecuser)
         {
-            updatecuser.CalendarId = calendarId;
-            updatecuser.UserId = userId;
+            var currentUserId = int.Parse(User.FindFirst("id").Value);
 
-            try
-            {
-                await _calendarUserRepo.UpdateCalendarUserAsync(updatecuser);
-                return NoContent();
-            }
-            catch (KeyNotFoundException ex)
-            {
-                return NotFound(ex.Message);
-            }
+            // Find den aktuelle brugers adgang til kalenderen
+            var currentAccess = await _context.CalendarUsers
+                .FirstOrDefaultAsync(cu => cu.CalendarId == calendarId && cu.UserId == currentUserId);
+
+            if (currentAccess == null || currentAccess.Permissions != CalendarUser.PermissionLevel.Owner)
+                return Forbid("You are not allowed to modify calendar users unless you are the owner.");
+
+            // Find brugeren der skal opdateres
+            var cuser = await _context.CalendarUsers
+                .Include(cu => cu.User)
+                .Include(cu => cu.Calendar)
+                .FirstOrDefaultAsync(cu => cu.CalendarId == calendarId && cu.UserId == userId);
+
+            if (cuser == null)
+                return NotFound();
+
+            cuser.Permissions = updatecuser.Permissions;
+            await _context.SaveChangesAsync();
+
+            return NoContent();
         }
 
-        //nået her til
+
 
         // Slet en CalendarUser
         [HttpDelete("{calendarId}/{userId}")]
