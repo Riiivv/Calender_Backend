@@ -4,6 +4,10 @@ using Calender.Repositories;
 using Calender.Extensions;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Calender.Repositories;
+using System.Runtime.CompilerServices;
+using Microsoft.AspNetCore.Authorization;
+using Calender.DTO;
 
 namespace Calender.Controllers
 {
@@ -11,11 +15,22 @@ namespace Calender.Controllers
     [ApiController]
     public class UserController : ControllerBase
     {
+
         private readonly UserRepo _userRepo;
 
         public UserController(DatabaseContext context)
         {
             _userRepo = new UserRepo(context);
+        }
+
+        // GET api/user/5
+        [HttpGet("{id}")]
+        public async Task<ActionResult<UserDto>> GetUser(int id)
+        {
+            var user = await _userRepo.GetUserByIdAsync(id);
+            if (user == null) return NotFound();
+
+            return Ok(user.ToDTO());
         }
 
         // Hent alle brugere (kun id + username)
@@ -32,7 +47,6 @@ namespace Calender.Controllers
         {
             var user = await _userRepo.GetUserByIdAsync(id);
             if (user == null) return NotFound();
-
             return Ok(user.ToDTO());
         }
 
@@ -48,12 +62,18 @@ namespace Calender.Controllers
             return CreatedAtAction(nameof(GetUser), new { id = user.UserId }, user.ToDTO());
         }
 
-        // Opdater eksisterende bruger
+
+        // Opdater en bruger
+        [Authorize]
         [HttpPut("{id}")]
         public async Task<IActionResult> UpdateUser(int id, User updatedUser)
         {
             if (string.IsNullOrWhiteSpace(updatedUser.Username))
                 return BadRequest("Username is required.");
+
+
+            if (string.IsNullOrWhiteSpace(updatedUser.PasswordHash))
+                return BadRequest("Password is required");
 
             updatedUser.UserId = id;
 
@@ -69,6 +89,7 @@ namespace Calender.Controllers
         }
 
         // Slet en bruger
+        [Authorize]
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteUser(int id)
         {

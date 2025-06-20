@@ -72,9 +72,21 @@ namespace Calender.Controllers
 
         [Authorize]
         [HttpGet]
-        public IActionResult AuthenticatedOnlyEndpoint()
+        public async Task<IActionResult> AuthenticatedOnlyEndpoint()
         {
-            return Ok("You are authenticated!");
+
+            var username = User.FindFirst(ClaimTypes.Name)?.Value;
+            var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+            if (username == null)
+                return NotFound();
+
+            return Ok(new
+            {
+                message = "You are authenticated",
+                username,
+                userId
+            });
         }
 
         private string CreateToken(User user)

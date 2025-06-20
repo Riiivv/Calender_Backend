@@ -1,7 +1,11 @@
 ﻿using Calender.Models;
+using Calender.Repositories;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.ChangeTracking.Internal;
+using System.Linq.Expressions;
 
 namespace Calender.Controllers
 {
@@ -10,94 +14,79 @@ namespace Calender.Controllers
     public class EventController : ControllerBase
     {
         private readonly DatabaseContext _context;
+        private readonly EventRepo _eventRepo;
         public EventController(DatabaseContext context)
         {
             _context = context;
+            _eventRepo = new EventRepo(context);
         }
 
         // Hent alle events
         [HttpGet]
         public async Task<ActionResult<IEnumerable<Event>>> GetAllEvents()
         {
-            var events = await _context.Events
-                .Include(e => e.Calendar)
-                .Include(e => e.EventUsers)
-                .Include(e => e.Invitations)
-                .ToListAsync();
-
-            return Ok(events);
+            return Ok(await _eventRepo.GetAllEventsAsync());
         }
 
         // Hent et enkelt event
         [HttpGet("{id}")]
         public async Task<ActionResult<Event>> GetEvent(int id)
         {
-            var eevent = await _context.Events
-                .Include(e => e.Calendar)
-                .Include(e => e.EventUsers)
-                .Include(e => e.Invitations)
-                .FirstOrDefaultAsync(e => e.EventId == id);
-
-            if (eevent == null)
-                return NotFound();
-
-            return Ok(eevent);
+            var evt = await _eventRepo.GetEventByIdAsync(id);
+            if (evt == null) return NotFound();
+            return Ok(evt);
         }
 
         // Opret et nyt event
+        [Authorize]
         [HttpPost]
-        public async Task<ActionResult<Event>> CreateEvent(Event eevent)
+        public async Task<ActionResult<Event>> CreateEvent(Event evt)
         {
-            if (eevent == null)
-                return BadRequest();
+            if (string.IsNullOrWhiteSpace(evt.EventTitle))
+                return BadRequest("EventTitle is required");
 
-            // Valider fremmednøgle (CalendarId)
-            var calendarExists = await _context.Calendars.AnyAsync(c => c.CalendarId == eevent.CalendarId);
-            if (!calendarExists)
-                return BadRequest("Calendar dosen't exist.");
+            if (evt.EventStart >= evt.EventEnd)
+                return BadRequest("Event start must be before event end.");
 
-            _context.Events.Add(eevent);
-            await _context.SaveChangesAsync();
-
-            return CreatedAtAction(nameof(GetEvent), new { id = eevent.EventId }, eevent);
+            await _eventRepo.AddEventAsync(evt);
+            return CreatedAtAction(nameof(GetEvent), new { id = evt.EventId }, evt);
         }
 
         // Opdater et event
+        [Authorize]
         [HttpPut("{id}")]
-        public async Task<IActionResult> UpdateEvent(int id, Event eventUpdate)
+        public async Task<IActionResult> UpdateEvent(int id, Event evt)
         {
-            var uevent = await _context.Events.FindAsync(id);
-            if (uevent == null)
-                return NotFound();
+            if (string.IsNullOrWhiteSpace(evt.EventTitle))
+                return BadRequest("EventTitle is required.");
 
-            // Opdater event data
-            uevent.CalendarId = eventUpdate.CalendarId;
-            uevent.EventDescription = eventUpdate.EventDescription;
-            uevent.EventTitle = eventUpdate.EventTitle;
-            uevent.EventStart = eventUpdate.EventStart;
-            uevent.EventEnd = eventUpdate.EventEnd;
+            evt.EventId = id;
 
-            await _context.SaveChangesAsync();
-
-            return NoContent();
+            try
+            {
+                await _eventRepo.UpdateEventAsync(evt);
+                return NoContent();
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFound(ex.Message);
+            }
         }
 
         // Slet et event
+        [Authorize]
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteEvent(int id)
         {
-            var devent = await _context.Events
-                .Include(e => e.EventUsers)
-                .Include(e => e.Invitations)
-                .FirstOrDefaultAsync(e => e.EventId == id);
-
-            if (devent == null)
+            try
+            {
+                await _eventRepo.DeleteEventAsync(id);
+                return NoContent();
+            }
+            catch (KeyNotFoundException)
+            {
                 return NotFound();
-
-            _context.Events.Remove(devent);
-            await _context.SaveChangesAsync();
-
-            return NoContent();
+            }
         }
     }
 }
