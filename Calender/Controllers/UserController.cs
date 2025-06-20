@@ -1,5 +1,7 @@
-﻿using Calender.Models;
-using Microsoft.AspNetCore.Http;
+﻿using Calender.DTO;
+using Calender.Models;
+using Calender.Repositories;
+using Calender.Extensions;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Calender.Repositories;
@@ -13,14 +15,12 @@ namespace Calender.Controllers
     [ApiController]
     public class UserController : ControllerBase
     {
-        private readonly DatabaseContext _context;
+
         private readonly UserRepo _userRepo;
 
         public UserController(DatabaseContext context)
         {
-            _context = context;
             _userRepo = new UserRepo(context);
-
         }
 
         // GET api/user/5
@@ -33,37 +33,35 @@ namespace Calender.Controllers
             return Ok(user.ToDTO());
         }
 
-        // Hent alle brugere
+        // Hent alle brugere (kun id + username)
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<User>>> GetAllUsers()
+        public async Task<ActionResult<IEnumerable<UserDto>>> GetAllUsers()
         {
-            return await _userRepo.GetAllUsersAsync();
+            var users = await _userRepo.GetAllUsersAsync();
+            return Ok(users.Select(u => u.ToDTO()));
         }
 
-        // Hent en enkelt bruger
+        // Hent en bruger (kun id + username)
         [HttpGet("{id}")]
-        public async Task<ActionResult<User>> GetUserById(int id)
+        public async Task<ActionResult<UserDto>> GetUser(int id)
         {
             var user = await _userRepo.GetUserByIdAsync(id);
-
-            if (user == null)
-                return NotFound();
-
-            return Ok(user);
-
+            if (user == null) return NotFound();
+            return Ok(user.ToDTO());
         }
 
-        // Opret en ny bruger
+        // Opret ny bruger
         [HttpPost]
-        public async Task<ActionResult<User>> CreateUser(User user)
+        public async Task<ActionResult<UserDto>> CreateUser(User user)
         {
             if (user == null || string.IsNullOrWhiteSpace(user.Username) || string.IsNullOrWhiteSpace(user.PasswordHash))
                 return BadRequest("Username and PasswordHash are required.");
 
             await _userRepo.AddUserAsync(user);
 
-            return CreatedAtAction(nameof(GetUserById), new { id = user.UserId }, user);
+            return CreatedAtAction(nameof(GetUser), new { id = user.UserId }, user.ToDTO());
         }
+
 
         // Opdater en bruger
         [Authorize]
@@ -71,7 +69,8 @@ namespace Calender.Controllers
         public async Task<IActionResult> UpdateUser(int id, User updatedUser)
         {
             if (string.IsNullOrWhiteSpace(updatedUser.Username))
-                return BadRequest("Username cannot be empy");
+                return BadRequest("Username is required.");
+
 
             if (string.IsNullOrWhiteSpace(updatedUser.PasswordHash))
                 return BadRequest("Password is required");
@@ -103,7 +102,6 @@ namespace Calender.Controllers
             {
                 return NotFound();
             }
-
         }
     }
 }
