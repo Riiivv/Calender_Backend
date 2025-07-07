@@ -1,11 +1,9 @@
 ﻿using Calender.Models;
 using Calender.Repositories;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.ChangeTracking.Internal;
-using System.Linq.Expressions;
+using System.Security.Claims;
 
 namespace Calender.Controllers
 {
@@ -15,6 +13,7 @@ namespace Calender.Controllers
     {
         private readonly DatabaseContext _context;
         private readonly EventRepo _eventRepo;
+
         public EventController(DatabaseContext context)
         {
             _context = context;
@@ -42,11 +41,21 @@ namespace Calender.Controllers
         [HttpPost]
         public async Task<ActionResult<Event>> CreateEvent(Event evt)
         {
-            if (string.IsNullOrWhiteSpace(evt.EventTitle))
-                return BadRequest("EventTitle is required");
+            var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
+            var role = User.FindFirst(ClaimTypes.Role)?.Value;
 
             if (evt.EventStart >= evt.EventEnd)
                 return BadRequest("Event start must be before event end.");
+
+            // WebsiteAdmin må alt
+            if (role != "WebsiteAdmin")
+            {
+                var permission = await _context.CalendarUsers
+                    .FirstOrDefaultAsync(cu => cu.CalendarId == evt.CalendarId && cu.UserId == userId);
+
+                if (permission == null || !permission.CanEdit)
+                    return StatusCode(403, "Du har ikke rettighed til at oprette event i denne kalender.");
+            }
 
             await _eventRepo.AddEventAsync(evt);
             return CreatedAtAction(nameof(GetEvent), new { id = evt.EventId }, evt);
@@ -60,17 +69,28 @@ namespace Calender.Controllers
             if (string.IsNullOrWhiteSpace(evt.EventTitle))
                 return BadRequest("EventTitle is required.");
 
-            evt.EventId = id;
+            var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
+            var role = User.FindFirst(ClaimTypes.Role)?.Value;
 
-            try
+            var existingEvent = await _eventRepo.GetEventByIdAsync(id);
+            if (existingEvent == null) return NotFound();
+
+            // WebsiteAdmin = fuld adgang
+            if (role != "WebsiteAdmin")
             {
-                await _eventRepo.UpdateEventAsync(evt);
-                return NoContent();
+                var permission = await _context.CalendarUsers
+                    .FirstOrDefaultAsync(cu => cu.CalendarId == existingEvent.CalendarId && cu.UserId == userId);
+
+                if (permission == null || !permission.CanEdit)
+                    return StatusCode(403, "Du har ikke adgang til at redigere dette event.");
             }
-            catch (KeyNotFoundException ex)
-            {
-                return NotFound(ex.Message);
-            }
+
+            existingEvent.EventTitle = evt.EventTitle;
+            existingEvent.EventStart = evt.EventStart;
+            existingEvent.EventEnd = evt.EventEnd;
+
+            await _eventRepo.UpdateEventAsync(existingEvent);
+            return NoContent();
         }
 
         // Slet et event
@@ -78,15 +98,23 @@ namespace Calender.Controllers
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteEvent(int id)
         {
-            try
+            var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
+            var role = User.FindFirst(ClaimTypes.Role)?.Value;
+
+            var evt = await _eventRepo.GetEventByIdAsync(id);
+            if (evt == null) return NotFound();
+
+            if (role != "WebsiteAdmin")
             {
-                await _eventRepo.DeleteEventAsync(id);
-                return NoContent();
+                var permission = await _context.CalendarUsers
+                    .FirstOrDefaultAsync(cu => cu.CalendarId == evt.CalendarId && cu.UserId == userId);
+
+                if (permission == null || !permission.IsOwner)
+                    return StatusCode(403, "Kun ejeren af kalenderen må slette events.");
             }
-            catch (KeyNotFoundException)
-            {
-                return NotFound();
-            }
+
+            await _eventRepo.DeleteEventAsync(id);
+            return NoContent();
         }
     }
 }

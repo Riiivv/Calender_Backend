@@ -8,6 +8,8 @@ using Calender.Repositories;
 using System.Runtime.CompilerServices;
 using Microsoft.AspNetCore.Authorization;
 using Calender.DTO;
+using System.Security.Claims;
+using Microsoft.AspNetCore.Diagnostics;
 
 namespace Calender.Controllers
 {
@@ -23,33 +25,22 @@ namespace Calender.Controllers
             _userRepo = new UserRepo(context);
         }
 
-        // GET api/user/5
-        [HttpGet("{id}")]
-        public async Task<ActionResult<UserDto>> GetUser(int id)
-        {
-            var user = await _userRepo.GetUserByIdAsync(id);
-            if (user == null) return NotFound();
-
-            return Ok(user.ToDTO());
-        }
-
-        // Hent alle brugere (kun id + username)
-        [HttpGet]
-        public async Task<ActionResult<IEnumerable<UserDto>>> GetAllUsers()
-        {
-            var users = await _userRepo.GetAllUsersAsync();
-            return Ok(users.Select(u => u.ToDTO()));
-        }
-
+        [Authorize]
         // Hent en bruger (kun id + username)
         [HttpGet("{id}")]
         public async Task<ActionResult<UserDto>> GetUser(int id)
         {
             var user = await _userRepo.GetUserByIdAsync(id);
             if (user == null) return NotFound();
-            return Ok(user.ToDTO());
-        }
 
+            var currentUser = HttpContext.User;
+
+            var role = currentUser.FindFirst(ClaimTypes.Role)?.Value;
+
+            bool includeId = role == "Admin";
+            return Ok(user.ToDTO(includeId));
+        }
+        
         // Opret ny bruger
         [HttpPost]
         public async Task<ActionResult<UserDto>> CreateUser(User user)
@@ -62,7 +53,7 @@ namespace Calender.Controllers
             return CreatedAtAction(nameof(GetUser), new { id = user.UserId }, user.ToDTO());
         }
 
-
+        
         // Opdater en bruger
         [Authorize]
         [HttpPut("{id}")]
@@ -88,11 +79,21 @@ namespace Calender.Controllers
             }
         }
 
-        // Slet en bruger
         [Authorize]
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteUser(int id)
         {
+            var currentUser = HttpContext.User;
+
+            var currentUserId = int.Parse(currentUser.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)!.Value);
+            var role = currentUser.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value;
+
+            // Hvis ikke admin og forsøger at slette en anden bruger
+            if (role != "WebsiteAdmin" && currentUserId != id)
+            {
+                return Forbid();
+            }
+
             try
             {
                 await _userRepo.DeleteUserAsync(id);
@@ -100,8 +101,9 @@ namespace Calender.Controllers
             }
             catch (KeyNotFoundException)
             {
-                return NotFound();
+                return NotFound("Bruger ikke fundet.");
             }
         }
+
     }
 }

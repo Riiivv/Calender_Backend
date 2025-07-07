@@ -1,9 +1,9 @@
 using Calender.Models;
 using Microsoft.AspNetCore.Authorization;
 using Calender.Repositories;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using System.Security.Claims;
 
 namespace Calender.Controllers
 {
@@ -20,7 +20,8 @@ namespace Calender.Controllers
             _calendarUserRepo = new CalendarUserRepo(context);
         }
 
-        // Hent alle CalendarUsers
+        // Hent alle CalendarUsers – kun for WebsiteAdmin
+        [Authorize(Roles = "WebsiteAdmin")]
         [HttpGet]
         public async Task<ActionResult<IEnumerable<CalendarUser>>> GetAllCUsers()
         {
@@ -28,55 +29,65 @@ namespace Calender.Controllers
             return Ok(calendarUsers);
         }
 
-        //hent en specefic CalendarUser
-        [HttpGet("{CalendarId}/{UserId}")]
-        public async Task<ActionResult<CalendarUser>> GetCalendarUser(int calendarid, int userId)
+        // Hent en bestemt CalendarUser – WebsiteAdmin, brugeren selv eller ejer
+        [Authorize]
+        [HttpGet("{calendarId}/{userId}")]
+        public async Task<ActionResult<CalendarUser>> GetCalendarUser(int calendarId, int userId)
         {
-            var calendarUser = await _calendarUserRepo.GetCalendarUserAsync(calendarid, userId);
-            if (calendarUser == null)
-                return NotFound();
+            var calendarUser = await _calendarUserRepo.GetCalendarUserAsync(calendarId, userId);
+            if (calendarUser == null) return NotFound();
+
+            var currentUserId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
+            var role = User.FindFirst(ClaimTypes.Role)?.Value;
+
+            if (role != "WebsiteAdmin" &&
+                currentUserId != userId &&
+                !await IsOwner(calendarId, currentUserId))
+                return Forbid();
 
             return Ok(calendarUser);
         }
 
-        // Opret en ny CalendarUser
+        // Opret en ny CalendarUser – kun Owner/Admin
         [Authorize]
         [HttpPost]
         public async Task<ActionResult<CalendarUser>> CreateCUser(CalendarUser cuser)
         {
-            if (cuser == null)
-                return BadRequest();
+            if (cuser == null) return BadRequest();
+
+            var currentUserId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
+            var role = User.FindFirst(ClaimTypes.Role)?.Value;
+
+            if (role != "WebsiteAdmin" &&
+                !await IsOwner(cuser.CalendarId, currentUserId))
+                return Forbid("Only the calendar owner or WebsiteAdmin can add users.");
 
             // Valider fremmednøgler
             var userExists = await _context.Users.AnyAsync(u => u.UserId == cuser.UserId);
             var calendarExists = await _context.Calendars.AnyAsync(c => c.CalendarId == cuser.CalendarId);
 
             if (!userExists || !calendarExists)
-                return BadRequest("User or Calendar dosen't exist.");
+                return BadRequest("User or Calendar doesn't exist.");
 
             _context.CalendarUsers.Add(cuser);
             await _context.SaveChangesAsync();
 
-            return CreatedAtAction(nameof(GetAllCUsers), new { id = cuser.CalendarId }, cuser);
+            return CreatedAtAction(nameof(GetCalendarUser), new { calendarId = cuser.CalendarId, userId = cuser.UserId }, cuser);
         }
 
+        // Opdater CalendarUser – kun Owner
         [Authorize]
         [HttpPut("{calendarId}/{userId}")]
         public async Task<IActionResult> UpdateCUser(int calendarId, int userId, CalendarUser updatecuser)
         {
-            var currentUserId = int.Parse(User.FindFirst("id").Value);
+            var currentUserId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
+            var role = User.FindFirst(ClaimTypes.Role)?.Value;
 
-            // Find den aktuelle brugers adgang til kalenderen
-            var currentAccess = await _context.CalendarUsers
-                .FirstOrDefaultAsync(cu => cu.CalendarId == calendarId && cu.UserId == currentUserId);
+            if (role != "WebsiteAdmin" &&
+                !await IsOwner(calendarId, currentUserId))
+                return Forbid("Only the owner can change user permissions.");
 
-            if (currentAccess == null || currentAccess.Permissions != CalendarUser.PermissionLevel.Owner)
-                return Forbid("You are not allowed to modify calendar users unless you are the owner.");
-
-            // Find brugeren der skal opdateres
             var cuser = await _context.CalendarUsers
-                .Include(cu => cu.User)
-                .Include(cu => cu.Calendar)
                 .FirstOrDefaultAsync(cu => cu.CalendarId == calendarId && cu.UserId == userId);
 
             if (cuser == null)
@@ -88,12 +99,19 @@ namespace Calender.Controllers
             return NoContent();
         }
 
-
-
-        // Slet en CalendarUser
+        // Slet CalendarUser – kun Owner eller brugeren selv
+        [Authorize]
         [HttpDelete("{calendarId}/{userId}")]
         public async Task<IActionResult> DeleteCuser(int calendarId, int userId)
         {
+            var currentUserId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
+            var role = User.FindFirst(ClaimTypes.Role)?.Value;
+
+            if (role != "WebsiteAdmin" &&
+                currentUserId != userId &&
+                !await IsOwner(calendarId, currentUserId))
+                return Forbid("Kun ejeren eller brugeren selv kan fjerne tilknytningen.");
+
             try
             {
                 await _calendarUserRepo.DeleteCalendarUserAsync(calendarId, userId);
@@ -103,6 +121,15 @@ namespace Calender.Controllers
             {
                 return NotFound(ex.Message);
             }
+        }
+
+        // 🔒 Hjælpemetode til ejertjek
+        private async Task<bool> IsOwner(int calendarId, int userId)
+        {
+            var cu = await _context.CalendarUsers
+                .FirstOrDefaultAsync(c => c.CalendarId == calendarId && c.UserId == userId);
+
+            return cu != null && cu.Permissions == CalendarUser.PermissionLevel.Owner;
         }
     }
 }
