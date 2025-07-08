@@ -132,5 +132,57 @@ namespace Calender.Controllers
             await _eventInvitationRepo.DeleteEventInvitationAsync(eventId, recipientId);
             return NoContent();
         }
+
+        [Authorize]
+        [HttpPost("{eventId}/{recipientId}/accept")]
+        public async Task<IActionResult> AcceptEventInvitation(int eventId, int recipientId)
+        {
+            var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
+            if (userId != recipientId)
+                return Forbid("Du kan kun acceptere invitationer sendt til dig.");
+
+            var invitation = await _eventInvitationRepo.GetEventInvitationAsync(eventId, recipientId);
+            if (invitation == null)
+                return NotFound("Invitationen findes ikke.");
+
+            // Tjek om brugeren allerede deltager
+            var alreadyIn = await _context.EventUsers
+                .AnyAsync(eu => eu.EventId == eventId && eu.UserId == userId);
+            if (alreadyIn)
+                return BadRequest("Du deltager allerede i eventet.");
+
+            // Tilføj til EventUsers
+            _context.EventUsers.Add(new EventUser
+            {
+                EventId = eventId,
+                UserId = userId
+            });
+
+            await _context.SaveChangesAsync();
+
+            // Fjern invitation
+            await _eventInvitationRepo.DeleteEventInvitationAsync(eventId, recipientId);
+
+            return Ok("Du er nu tilføjet til eventet.");
+        }
+
+        [Authorize]
+        [HttpPost("{eventId}/{recipientId}/decline")]
+        public async Task<IActionResult> DeclineEventInvitation(int eventId, int recipientId)
+        {
+            var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
+            if (userId != recipientId)
+                return Forbid("Du kan kun afvise invitationer sendt til dig.");
+
+            var invitation = await _eventInvitationRepo.GetEventInvitationAsync(eventId, recipientId);
+            if (invitation == null)
+                return NotFound("Invitationen findes ikke.");
+
+            await _eventInvitationRepo.DeleteEventInvitationAsync(eventId, recipientId);
+
+            return Ok("Invitationen er afvist og slettet.");
+        }
+
+
     }
 }

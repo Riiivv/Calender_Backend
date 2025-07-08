@@ -163,10 +163,14 @@ namespace Calender.Controllers
 
         [Authorize]
         [HttpDelete("{id}")]
-        public async Task<ActionResult> DeleteCalendar(int id)
+        public async Task<IActionResult> DeleteCalendar(int id)
         {
             var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
             var role = User.FindFirst(ClaimTypes.Role)?.Value;
+
+            var calendar = await _context.Calendars.FindAsync(id);
+            if (calendar == null)
+                return NotFound("Kalenderen blev ikke fundet.");
 
             if (role != "WebsiteAdmin")
             {
@@ -174,19 +178,14 @@ namespace Calender.Controllers
                     .FirstOrDefaultAsync(cu => cu.CalendarId == id && cu.UserId == userId);
 
                 if (perm == null || (perm.Permissions != CalendarUser.PermissionLevel.Owner && perm.Permissions != CalendarUser.PermissionLevel.Moderator))
-                    return Forbid("Kun ejeren eller en moderator kan slette kalenderen.");
+                    return StatusCode(403, "Kun ejeren eller en moderator kan slette kalenderen.");
+
             }
 
-            try
-            {
-                await _calendarRepo.DeleteCalendarAsync(id);
-                return NoContent();
-            }
-            catch (KeyNotFoundException)
-            {
-                return NotFound();
-            }
+            await _calendarRepo.DeleteCalendarAsync(id); // Repository tager sig af selve sletningen
+            return NoContent();
         }
+
 
         [Authorize]
         [HttpGet("{id}/events")]

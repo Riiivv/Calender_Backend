@@ -28,8 +28,9 @@ namespace Calender.Repositories
         public async Task<CalendarUser?> GetCalendarUserAsync(int calendarId, int userId)
         {
             return await _context.CalendarUsers
-                .Include(cu => cu.User)
-                .Include(cu => cu.Calendar)
+                // UDEN Include:
+                //.Include(cu => cu.User)
+                //.Include(cu => cu.Calendar)
                 .FirstOrDefaultAsync(cu => cu.CalendarId == calendarId && cu.UserId == userId);
         }
 
@@ -59,7 +60,7 @@ namespace Calender.Repositories
             var calendarUser = await _context.CalendarUsers
                 .FirstOrDefaultAsync(cu => cu.CalendarId == calendarId && cu.UserId == userId);
 
-            if (calendarUser != null)
+            if (calendarUser == null)
                 throw new KeyNotFoundException("CalenderUser not found");
 
                 _context.CalendarUsers.Remove(calendarUser);

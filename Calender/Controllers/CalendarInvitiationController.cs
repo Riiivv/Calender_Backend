@@ -184,30 +184,45 @@ namespace Calender.Controllers
                 return NotFound("Invitation not found.");
 
             if (invitation.RecipientId != userId)
-                return Forbid("Du kan kun acceptere invitationer, der er sendt til dig.");
+                return StatusCode(403, "Du kan kun acceptere invitationer, der er sendt til dig.");
 
-            // Tjek om brugeren allerede er medlem
             var alreadyMember = await _context.CalendarUsers
                 .AnyAsync(cu => cu.CalendarId == invitation.CalendarId && cu.UserId == userId);
 
             if (alreadyMember)
                 return BadRequest("Du er allerede medlem af denne kalender.");
 
-            // Tilføj bruger til kalender
             var calendarUser = new CalendarUser
             {
                 CalendarId = invitation.CalendarId,
                 UserId = userId,
-                Permissions = CalendarUser.PermissionLevel.User // Standard som almindelig bruger
+                Permissions = CalendarUser.PermissionLevel.User
             };
 
             _context.CalendarUsers.Add(calendarUser);
             await _context.SaveChangesAsync();
 
-            // Fjern invitation (valgfrit)
             await _invitationRepo.DeleteCalendarInvitationAsync(id);
 
             return Ok("Invitation accepteret. Du er nu tilføjet til kalenderen.");
+        }
+
+        [Authorize]
+        [HttpPost("{id}/decline")]
+        public async Task<IActionResult> DeclineInvitation(int id)
+        {
+            var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
+
+            var invitation = await _invitationRepo.GetCalendarInvitationAsync(id);
+            if (invitation == null)
+                return NotFound("Invitation ikke fundet.");
+
+            if (invitation.RecipientId != userId)
+                return StatusCode(403, "Du kan kun afvise invitationer, der er sendt til dig.");
+
+            await _invitationRepo.DeleteCalendarInvitationAsync(id);
+
+            return Ok("Invitationen er afvist og slettet.");
         }
 
     }

@@ -37,24 +37,18 @@ namespace Calender.Controllers
             var user = new User
             {
                 Username = request.Username,
-                Role = "User" // eller andet som default
+                Role = request.Role ?? "User" // ← dynamisk, med fallback
             };
 
             var hasher = new PasswordHasher<User>();
             user.PasswordHash = hasher.HashPassword(user, request.PasswordHash);
 
-            try
-            {
-                _context.Users.Add(user);
-                await _context.SaveChangesAsync();
-            }
-            catch (DbUpdateException ex)
-            {
-                return BadRequest("DB error: " + (ex.InnerException?.Message ?? ex.Message));
-            }
+            _context.Users.Add(user);
+            await _context.SaveChangesAsync();
 
-            return Ok(new { user.UserId, user.Username });
+            return Ok(new { user.UserId, user.Username, user.Role });
         }
+
 
 
         [HttpPost("login")]
