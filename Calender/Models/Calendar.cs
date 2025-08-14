@@ -4,9 +4,8 @@ namespace Calender.Models
 {
     public class Calendar
     {
-        [JsonIgnore]
-        public int CalendarId { get; set; }
-        public string CalendarName { get; set; }
+        public int CalendarId { get; set; } // Made public so it can be serialized when needed
+        public string CalendarName { get; set; } = string.Empty;
         public int Userid { get; set; }
 
         [JsonIgnore]
