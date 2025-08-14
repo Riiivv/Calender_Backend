@@ -21,10 +21,15 @@ namespace Calender.Controllers
         }
 
         // Hent alle events
+        [Authorize]
         [HttpGet]
         public async Task<ActionResult<IEnumerable<Event>>> GetAllEvents()
         {
-            return Ok(await _eventRepo.GetAllEventsAsync());
+            int userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
+            var role = User.FindFirst(ClaimTypes.Role)?.Value;
+
+            var events = await _eventRepo.GetAllUserEventsAsync(userId);
+            return Ok(events);
         }
 
         // Hent et enkelt event
@@ -115,6 +120,15 @@ namespace Calender.Controllers
 
             await _eventRepo.DeleteEventAsync(id);
             return NoContent();
+        }
+
+        [Authorize]
+        [HttpGet("user/{userId}")]
+        public async Task<ActionResult<IEnumerable<Event>>> GetEventsByUserId(int userId)
+        {
+            var events = await _eventRepo.GetEventsByUserIdAsync(userId);
+            if (events == null || !events.Any()) return NotFound();
+            return Ok(events);
         }
     }
 }

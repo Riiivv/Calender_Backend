@@ -33,10 +33,11 @@ namespace Calender.Repositories
                 .FirstOrDefaultAsync(c => c.CalendarId == id);
         }
 
-        public async Task AddCalendarAsync(Calendar calendar)
+        public async Task<int> AddCalendarAsync(Calendar calendar)
         {
             ctx.Calendars.Add(calendar);
             await ctx.SaveChangesAsync();
+            return calendar.CalendarId;
         }
 
         public async Task<bool> UserExistsAsync(int userId)

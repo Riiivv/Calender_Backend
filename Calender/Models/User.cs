@@ -9,7 +9,9 @@ namespace Calender.Models
         public int UserId { get; set; }
         public string Username { get; set; }
         public string PasswordHash { get; set; }
-        public string Role { get; set; }
+
+        [JsonIgnore]
+        public string? Role { get; set; }
 
         [JsonIgnore]
         public virtual List<Calendar>? Calendars { get; set; } = new List<Calendar>();

@@ -8,7 +8,7 @@ namespace Calender.Interface
     {
         Task<List<Calendar>> GetCalendarsAsync();
         Task<Calendar?> GetCalendarByIdAsync(int id);
-        Task AddCalendarAsync(Calendar calendar);
+        Task<int> AddCalendarAsync(Calendar calendar);
         Task UpdateCalendarAsync(Calendar calendar);
         Task DeleteCalendarAsync(int id);
     }

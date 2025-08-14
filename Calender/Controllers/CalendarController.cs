@@ -1,4 +1,5 @@
-﻿using Calender.Models;
+﻿using Calender.DTO;
+using Calender.Models;
 using Calender.Repositories;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -23,15 +24,10 @@ namespace Calender.Controllers
 
         [Authorize]
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<Calendar>>> GetCalendar()
+        public async Task<ActionResult<IEnumerable<CalendarDTO>>> GetCalendar()
         {
             var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
             var role = User.FindFirst(ClaimTypes.Role)?.Value;
-
-            if (role == "WebsiteAdmin")
-            {
-                return await _calendarRepo.GetCalendarsAsync();
-            }
 
             var calendarIds = await _context.CalendarUsers
                 .Where(cu => cu.UserId == userId)
@@ -40,9 +36,22 @@ namespace Calender.Controllers
 
             var calendars = await _context.Calendars
                 .Where(c => calendarIds.Contains(c.CalendarId))
+                .Select(c => new Calendar
+                {
+                    CalendarId = c.CalendarId,
+                    CalendarName = c.CalendarName,
+                    Userid = c.Userid
+                })
                 .ToListAsync();
 
-            return Ok(calendars);
+            CalendarDTO[] calendarDTOs = calendars.Select(c => new CalendarDTO
+            {
+                CalendarId = c.CalendarId,
+                CalendarName = c.CalendarName,
+                Userid = c.Userid
+            }).ToArray();
+
+            return Ok(calendarDTOs);
         }
 
         [Authorize]
@@ -70,21 +79,19 @@ namespace Calender.Controllers
 
         [Authorize]
         [HttpPost]
-        public async Task<ActionResult<Calendar>> CreateCalendar(Calendar calendar)
+        public async Task<ActionResult<Calendar>> CreateCalendar(String CalendarName)
         {
             var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
 
-            if (calendar == null || string.IsNullOrWhiteSpace(calendar.CalendarName))
-                return BadRequest("CalendarName is required.");
+            if (CalendarName == null || string.IsNullOrWhiteSpace(CalendarName))
+                return BadRequest("CalendarName is required.");        
 
-            calendar.Userid = userId;
-
-            await _calendarRepo.AddCalendarAsync(calendar);
+            int calendarId = await _calendarRepo.AddCalendarAsync(new Calendar { CalendarName = CalendarName, Userid = userId });
 
             // Tilføj opretter som Owner i CalendarUsers
             var ownerLink = new CalendarUser
             {
-                CalendarId = calendar.CalendarId,
+                CalendarId = calendarId,
                 UserId = userId,
                 Permissions = CalendarUser.PermissionLevel.Owner
             };
@@ -92,7 +99,7 @@ namespace Calender.Controllers
             _context.CalendarUsers.Add(ownerLink);
             await _context.SaveChangesAsync();
 
-            return CreatedAtAction(nameof(GetCalendar), new { id = calendar.CalendarId }, calendar);
+            return CreatedAtAction(nameof(GetCalendar), new { id = calendarId }, new Calendar { CalendarId = calendarId, CalendarName = CalendarName, Userid = userId });
         }
 
         [Authorize]

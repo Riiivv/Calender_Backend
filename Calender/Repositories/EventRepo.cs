@@ -15,10 +15,11 @@ namespace Calender.Repositories
             _context = context;
         }
 
-        // Hent alle events
-        public async Task<List<Event>> GetAllEventsAsync()
+        // Get all user events
+        public async Task<List<Event>> GetAllUserEventsAsync(int userId)
         {
             return await _context.Events
+                .Where(e => e.EventUsers.Any(eu => eu.UserId == userId))
                 .Include(e => e.Calendar)
                 .Include(e => e.EventUsers)
                 .Include(e => e.Invitations)
@@ -74,6 +75,16 @@ namespace Calender.Repositories
 
             _context.Events.Remove(eventToDelete);
             await _context.SaveChangesAsync();
+        }
+
+        public async Task<IEnumerable<Event>> GetEventsByUserIdAsync(int userId)
+        {
+            return await _context.Events
+                .Where(e => e.EventUsers.Any(eu => eu.UserId == userId))
+                .Include(e => e.Calendar)
+                .Include(e => e.EventUsers)
+                .Include(e => e.Invitations)
+                .ToListAsync();
         }
     }
 }

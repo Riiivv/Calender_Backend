@@ -37,7 +37,7 @@ namespace Calender.Controllers
             var user = new User
             {
                 Username = request.Username,
-                Role = request.Role ?? "User" // ← dynamisk, med fallback
+                Role = "User" // User was able to give themselves admin???
             };
 
             var hasher = new PasswordHasher<User>();
