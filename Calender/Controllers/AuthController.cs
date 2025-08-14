@@ -25,9 +25,7 @@ namespace Calender.Controllers
             this._context = context;
             this.configuration = configuration;
         }
-
         [HttpPost("register")]
-
         public async Task<ActionResult<User>> Register(User request)
         {
             if (string.IsNullOrWhiteSpace(request.Username) || string.IsNullOrWhiteSpace(request.PasswordHash))
@@ -36,20 +34,22 @@ namespace Calender.Controllers
             if (await _context.Users.AnyAsync(u => u.Username == request.Username))
                 return BadRequest("Username already exists.");
 
-
             var user = new User
             {
-                Username = request.Username
+                Username = request.Username,
+                Role = request.Role ?? "User" // ← dynamisk, med fallback
             };
 
-            var passwordHasher = new PasswordHasher<User>();
-            user.PasswordHash = passwordHasher.HashPassword(user, request.PasswordHash);
+            var hasher = new PasswordHasher<User>();
+            user.PasswordHash = hasher.HashPassword(user, request.PasswordHash);
 
             _context.Users.Add(user);
             await _context.SaveChangesAsync();
 
-            return Ok(new { user.UserId, user.Username });
+            return Ok(new { user.UserId, user.Username, user.Role });
         }
+
+
 
         [HttpPost("login")]
 
@@ -94,7 +94,8 @@ namespace Calender.Controllers
             var claims = new List<Claim>
             {
                 new Claim(ClaimTypes.Name, user.Username),
-                new Claim(ClaimTypes.NameIdentifier, user.UserId.ToString())
+                new Claim(ClaimTypes.NameIdentifier, user.UserId.ToString()),
+                new Claim(ClaimTypes.Role, user.Role ?? "Admin")
             };
 
             var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(configuration["JwtSettings:Token"]!));

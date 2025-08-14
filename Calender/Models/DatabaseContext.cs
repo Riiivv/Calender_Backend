@@ -71,7 +71,7 @@ namespace Calender.Models
                 .HasOne(eu => eu.Event)
                 .WithMany(e => e.EventUsers)
                 .HasForeignKey(eu => eu.EventId)
-                .OnDelete(DeleteBehavior.Restrict);
+                .OnDelete(DeleteBehavior.Cascade);
 
             modelBuilder.Entity<EventUser>()
                 .HasOne(eu => eu.User)
@@ -87,7 +87,7 @@ namespace Calender.Models
                 .HasOne(cu => cu.Calendar)
                 .WithMany(c => c.CalendarUsers)
                 .HasForeignKey(cu => cu.CalendarId)
-                .OnDelete(DeleteBehavior.Restrict);
+                 .OnDelete(DeleteBehavior.Cascade);
 
             modelBuilder.Entity<CalendarUser>()
                 .HasOne(cu => cu.User)

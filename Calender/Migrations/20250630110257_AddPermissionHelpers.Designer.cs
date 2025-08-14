@@ -4,6 +4,7 @@ using Calender.Models;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace Calender.Migrations
 {
     [DbContext(typeof(DatabaseContext))]
-    partial class DatabaseContextModelSnapshot : ModelSnapshot
+    [Migration("20250630110257_AddPermissionHelpers")]
+    partial class AddPermissionHelpers
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -34,7 +37,7 @@ namespace Calender.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<int>("Userid")
+                    b.Property<int?>("Userid")
                         .HasColumnType("int");
 
                     b.HasKey("CalendarId");
@@ -197,8 +200,7 @@ namespace Calender.Migrations
                     b.HasOne("Calender.Models.User", "User")
                         .WithMany("Calendars")
                         .HasForeignKey("Userid")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
+                        .OnDelete(DeleteBehavior.Cascade);
 
                     b.Navigation("User");
                 });
@@ -235,7 +237,7 @@ namespace Calender.Migrations
                     b.HasOne("Calender.Models.Calendar", "Calendar")
                         .WithMany("CalendarUsers")
                         .HasForeignKey("CalendarId")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
                     b.HasOne("Calender.Models.User", "User")
@@ -292,7 +294,7 @@ namespace Calender.Migrations
                     b.HasOne("Calender.Models.Event", "Event")
                         .WithMany("EventUsers")
                         .HasForeignKey("EventId")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
                     b.HasOne("Calender.Models.User", "User")

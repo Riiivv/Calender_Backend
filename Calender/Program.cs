@@ -1,4 +1,4 @@
-using Calender.Interface;
+﻿using Calender.Interface;
 using Calender.Models;
 using Calender.Repositories;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -6,11 +6,17 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Scalar.AspNetCore;
 using System.Text;
+using System.Text.Json.Serialization; // <-- tilføjet
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
-builder.Services.AddControllers();
+builder.Services.AddControllers()
+    .AddJsonOptions(options =>
+    {
+        options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter()); // <-- tilføjet
+    });
+
 builder.Services.AddOpenApi();
 builder.Services.AddScoped<ICalendar, CalendarRepo>();
 builder.Services.AddScoped<ICalendarUser, CalendarUserRepo>();
@@ -18,11 +24,10 @@ builder.Services.AddScoped<IEventInvitation, EventInvitationRepo>();
 builder.Services.AddScoped<IEvent, EventRepo>();
 builder.Services.AddScoped<IEventUser, EventUserRepo>();
 builder.Services.AddScoped<IUser, UserRepo>();
-//Test af branch
-
 
 string connectionstring = builder.Configuration.GetConnectionString("DefaultConnection");
-builder.Services.AddDbContext<DatabaseContext>(options => options.UseSqlServer(connectionstring, b => b.MigrationsAssembly("Calender")));
+builder.Services.AddDbContext<DatabaseContext>(options =>
+    options.UseSqlServer(connectionstring, b => b.MigrationsAssembly("Calender")));
 
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
@@ -40,8 +45,6 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
         };
     });
 
-
-
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
@@ -51,10 +54,9 @@ if (app.Environment.IsDevelopment())
     app.MapOpenApi();
 }
 
-app.UseAuthentication();    // <- Denne M� komme f�r authorization
+app.UseAuthentication();    // MÅ komme før authorization
 app.UseAuthorization();
 
 app.MapControllers();
-
 
 app.Run();

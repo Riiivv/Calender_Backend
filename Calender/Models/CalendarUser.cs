@@ -14,10 +14,14 @@ namespace Calender.Models
 
         public enum PermissionLevel
         {
-            Viewer,
-            Editor,
-            Owner
+            User = 0,
+            Moderator =1,
+            Owner =2
         }
         public PermissionLevel Permissions { get; set; }
+
+        public bool CanEdit => Permissions == PermissionLevel.Moderator || Permissions == PermissionLevel.Owner;
+        public bool CanInvite => Permissions == PermissionLevel.Owner;
+        public bool IsOwner => Permissions == PermissionLevel.Owner;
     }
 }

@@ -71,19 +71,42 @@ namespace Calender.Repositories
         {
             var user = await _context.Users
                 .Include(u => u.Calendars)
+                .Include(u => u.CalendarUsers)
                 .Include(u => u.SentInvitations)
                 .Include(u => u.RecievedInvitations)
                 .Include(u => u.SentEventInvitations)
                 .Include(u => u.RecievedEventInvitations)
                 .Include(u => u.EventUsers)
-                .Include(u => u.CalendarUsers)
-                .FirstOrDefaultAsync(u=> u.UserId == id);
+                .FirstOrDefaultAsync(u => u.UserId == id);
 
-            if (user != null)
+            if (user == null)
                 throw new KeyNotFoundException("User not found");
 
-                _context.Users.Remove(user);
-                await _context.SaveChangesAsync();
+            // Trin 1: Fjern CalendarUsers, der peger på brugerens kalendere
+            foreach (var calendar in user.Calendars)
+            {
+                var relatedUsers = await _context.CalendarUsers
+                    .Where(cu => cu.CalendarId == calendar.CalendarId)
+                    .ToListAsync();
+
+                _context.CalendarUsers.RemoveRange(relatedUsers);
+            }
+
+            // Trin 2: Fjern brugerens egne links
+            _context.CalendarUsers.RemoveRange(user.CalendarUsers);
+            _context.CalendarInvitations.RemoveRange(user.SentInvitations);
+            _context.CalendarInvitations.RemoveRange(user.RecievedInvitations);
+            _context.EventInvitations.RemoveRange(user.SentEventInvitations);
+            _context.EventInvitations.RemoveRange(user.RecievedEventInvitations);
+            _context.EventUsers.RemoveRange(user.EventUsers);
+
+            // Trin 3: (valgfrit) Fjern brugerens egne kalendere
+            _context.Calendars.RemoveRange(user.Calendars);
+
+            // Trin 4: Fjern brugeren
+            _context.Users.Remove(user);
+
+            await _context.SaveChangesAsync();
         }
     }
 }
